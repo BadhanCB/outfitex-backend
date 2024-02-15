@@ -66,6 +66,11 @@ const runMongoConnection = async () => {
                 };
 
                 const newProduct = {
+                    slug:
+                        name.toLowerCase().replace(/[^a-z0-9-]+/g, "-") +
+                        Math.round(
+                            Math.random() * (999999 - 100000) + 100000
+                        ).toString(),
                     name,
                     price: parseFloat(price),
                     category,
@@ -73,7 +78,9 @@ const runMongoConnection = async () => {
                     description,
                     image,
                     createdAt: new Date(),
+                    updatedAt: new Date(),
                     sellingCount: 0,
+                    isFeatured: false,
                 };
 
                 const response = await productCollection.insertOne(newProduct);

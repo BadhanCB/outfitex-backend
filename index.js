@@ -38,7 +38,7 @@ const runMongoConnection = async () => {
         const sellerCollection = client.db("outfitex").collection("seller");
         const adminCollection = client.db("outfitex").collection("admin");
 
-        /****************** VERIFY JWT ********************/
+        /****************** VERIFY JWT(JWT Authorization) ********************/
         //seller token
         async function verifySellerToken(req, res, next) {
             const token = req.headers.authorization.split(" ")[1];
@@ -75,6 +75,54 @@ const runMongoConnection = async () => {
                 next();
             }
         }
+        //login with JWT token
+        app.get("/authenticate-with-jwt", async (req, res) => {
+            const token = req.headers.authorization.split(" ")[1];
+            const tokenData = jwt.decode(token, process.env.JWT_SECRET);
+            const { _id, role } = tokenData;
+            let info = {};
+            let jwtToken;
+
+            if (role === "user") {
+                info = await userCollection.findOne({ _id: new ObjectId(_id) });
+            } else if (role === "seller") {
+                info = await sellerCollection.findOne({
+                    _id: new ObjectId(_id),
+                });
+            } else if (role === "admin") {
+                info = await adminCollection.findOne({
+                    _id: new ObjectId(_id),
+                });
+            }
+
+            if (!info) {
+                res.status(400).send({ message: "Password not matched" });
+            } else {
+                const { password, ...restInfo } = info;
+
+                const sharebleInfo = { ...restInfo, role };
+                jwtToken = await jwt.sign(
+                    {
+                        _id: sharebleInfo._id,
+                        name: sharebleInfo.name,
+                        userName: sharebleInfo.userName,
+                        email: sharebleInfo.email,
+                        phone: sharebleInfo.phone,
+                        slug: sharebleInfo.slug,
+                        role,
+                    },
+                    process.env.JWT_SECRET,
+                    {
+                        algorithm: "HS256",
+                    }
+                );
+
+                res.status(200).send({
+                    info: sharebleInfo,
+                    token: jwtToken,
+                });
+            }
+        });
 
         /****************** PRODUCTS ********************/
         //get products

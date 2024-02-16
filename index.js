@@ -46,8 +46,8 @@ const runMongoConnection = async () => {
             const { _id, name, userName, email, phone, slug, role } = data;
 
             if (role !== "seller") {
-                console.log("User not seller");
                 res.status(401).send({ message: "Unauthorized Access" });
+                return;
             }
 
             const sellerData = await sellerCollection.findOne({
@@ -55,8 +55,8 @@ const runMongoConnection = async () => {
             });
 
             if (!sellerData) {
-                console.log("seller data not found");
                 res.status(401).send({ message: "Unauthorized Access" });
+                return;
             }
 
             if (
@@ -67,13 +67,13 @@ const runMongoConnection = async () => {
             ) {
                 console.log("Seller data not matched");
                 res.status(401).send({ message: "Unauthorized Access" });
-            } else {
-                req.body = {
-                    ...req.body,
-                    seller: { _id, name, userName, email, phone, slug },
-                };
-                next();
+                return;
             }
+            req.body = {
+                ...req.body,
+                seller: { _id, name, userName, email, phone, slug },
+            };
+            next();
         }
         //login with JWT token
         app.get("/authenticate-with-jwt", async (req, res) => {
@@ -97,31 +97,31 @@ const runMongoConnection = async () => {
 
             if (!info) {
                 res.status(400).send({ message: "Password not matched" });
-            } else {
-                const { password, ...restInfo } = info;
-
-                const sharebleInfo = { ...restInfo, role };
-                jwtToken = await jwt.sign(
-                    {
-                        _id: sharebleInfo._id,
-                        name: sharebleInfo.name,
-                        userName: sharebleInfo.userName,
-                        email: sharebleInfo.email,
-                        phone: sharebleInfo.phone,
-                        slug: sharebleInfo.slug,
-                        role,
-                    },
-                    process.env.JWT_SECRET,
-                    {
-                        algorithm: "HS256",
-                    }
-                );
-
-                res.status(200).send({
-                    info: sharebleInfo,
-                    token: jwtToken,
-                });
+                return;
             }
+            const { password, ...restInfo } = info;
+
+            const sharebleInfo = { ...restInfo, role };
+            jwtToken = await jwt.sign(
+                {
+                    _id: sharebleInfo._id,
+                    name: sharebleInfo.name,
+                    userName: sharebleInfo.userName,
+                    email: sharebleInfo.email,
+                    phone: sharebleInfo.phone,
+                    slug: sharebleInfo.slug,
+                    role,
+                },
+                process.env.JWT_SECRET,
+                {
+                    algorithm: "HS256",
+                }
+            );
+
+            res.status(200).send({
+                info: sharebleInfo,
+                token: jwtToken,
+            });
         });
 
         /****************** PRODUCTS ********************/
@@ -214,6 +214,7 @@ const runMongoConnection = async () => {
                     res.status(400).send({
                         message: "provide all the information for login",
                     });
+                    return;
                 }
 
                 info = await userCollection.findOne({ email: email });
@@ -229,6 +230,7 @@ const runMongoConnection = async () => {
                 if (!info) {
                     role = "";
                     res.status(404).send({ message: "Email not found" });
+                    return;
                 }
 
                 const { password, ...restInfo } = info;
@@ -236,6 +238,7 @@ const runMongoConnection = async () => {
 
                 if (!result) {
                     res.status(400).send({ message: "Password not matched" });
+                    return;
                 }
 
                 const sharebleInfo = { ...restInfo, role };
@@ -284,6 +287,7 @@ const runMongoConnection = async () => {
                         message:
                             "provide all the information for creating new account",
                     });
+                    return;
                 }
 
                 const salt = await bcrybt.genSalt(
@@ -345,6 +349,7 @@ const runMongoConnection = async () => {
                         message:
                             "provide all the information for creating new account",
                     });
+                    return;
                 }
 
                 const salt = await bcrybt.genSalt(

@@ -1,10 +1,11 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const fileUpload = require("express-fileupload");
 const sharp = require("sharp");
 const bcrybt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const { slugify } = require("./utils/slugify.utils");
 
 const app = express();
@@ -37,6 +38,44 @@ const runMongoConnection = async () => {
         const sellerCollection = client.db("outfitex").collection("seller");
         const adminCollection = client.db("outfitex").collection("admin");
 
+        /****************** VERIFY JWT ********************/
+        //seller token
+        async function verifySellerToken(req, res, next) {
+            const token = req.headers.authorization.split(" ")[1];
+            const data = jwt.decode(token, process.env.JWT_SECRET);
+            const { _id, name, userName, email, phone, slug, role } = data;
+
+            if (role !== "seller") {
+                console.log("User not seller");
+                res.status(401).send({ message: "Unauthorized Access" });
+            }
+
+            const sellerData = await sellerCollection.findOne({
+                _id: new ObjectId(_id),
+            });
+
+            if (!sellerData) {
+                console.log("seller data not found");
+                res.status(401).send({ message: "Unauthorized Access" });
+            }
+
+            if (
+                name !== sellerData.name ||
+                userName !== sellerData.userName ||
+                email !== sellerData.email ||
+                phone !== sellerData.phone
+            ) {
+                console.log("Seller data not matched");
+                res.status(401).send({ message: "Unauthorized Access" });
+            } else {
+                req.body = {
+                    ...req.body,
+                    seller: { _id, name, userName, email, phone, slug },
+                };
+                next();
+            }
+        }
+
         /****************** PRODUCTS ********************/
         //get products
         app.get("/products", async ({ res }) => {
@@ -52,11 +91,19 @@ const runMongoConnection = async () => {
         });
 
         //create new products
-        app.post("/products", async (req, res) => {
+        app.post("/products", verifySellerToken, async (req, res) => {
             try {
                 const { data } = req?.files?.file;
-                const { name, price, category, collection, description } =
-                    req.body;
+                const {
+                    name,
+                    price,
+                    category,
+                    collection,
+                    description,
+                    seller,
+                } = req.body;
+
+                console.log(req.body);
 
                 let img;
                 await sharp(data)
@@ -81,6 +128,7 @@ const runMongoConnection = async () => {
                     collection,
                     description,
                     image,
+                    seller,
                     createdAt: new Date(),
                     updatedAt: new Date(),
                     sellingCount: 0,
@@ -112,6 +160,7 @@ const runMongoConnection = async () => {
                 const { email, password: userPassword } = req.body;
                 let role = "";
                 let info = {};
+                let jwtToken;
 
                 if (!email || !userPassword) {
                     res.status(400).send({
@@ -141,9 +190,27 @@ const runMongoConnection = async () => {
                     res.status(400).send({ message: "Password not matched" });
                 }
 
+                const sharebleInfo = { ...restInfo, role };
+                jwtToken = await jwt.sign(
+                    {
+                        _id: sharebleInfo._id,
+                        name: sharebleInfo.name,
+                        userName: sharebleInfo.userName,
+                        email: sharebleInfo.email,
+                        phone: sharebleInfo.phone,
+                        slug: sharebleInfo.slug,
+                        role,
+                    },
+                    process.env.JWT_SECRET,
+                    {
+                        algorithm: "HS256",
+                    }
+                );
+
                 res.status(200).send({
-                    info: { ...restInfo, role },
+                    info: sharebleInfo,
                     message: "Successfully login to your account",
+                    token: jwtToken,
                 });
             } catch (err) {
                 console.log(err);

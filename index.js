@@ -163,7 +163,25 @@ const runMongoConnection = async () => {
                         sellingCount: -1,
                     })
                     .limit(10)
-                    .project({ name: 1, price: 1 });
+                    .project({ name: 1, price: 1, image: 1 });
+
+                const products = await cursor.toArray();
+                res.status(200).send(products);
+            } catch (error) {
+                res.status(500).send(error);
+            }
+        });
+
+        //get latest products
+        app.get("/products/latest", async ({ res }) => {
+            try {
+                const cursor = productCollection
+                    .find({})
+                    .sort({
+                        createdAt: 1,
+                    })
+                    .limit(10)
+                    .project({ name: 1, price: 1, image: 1, collection: 1 });
 
                 const products = await cursor.toArray();
                 res.status(200).send(products);

@@ -35,6 +35,7 @@ const runMongoConnection = async () => {
         console.log("MongoDB Connected");
         const productCollection = client.db("outfitex").collection("products");
         const userCollection = client.db("outfitex").collection("users");
+        const orderCollection = client.db("outfitex").collection("orders");
         const sellerCollection = client.db("outfitex").collection("seller");
         const adminCollection = client.db("outfitex").collection("admin");
 
@@ -75,6 +76,44 @@ const runMongoConnection = async () => {
             };
             next();
         }
+
+        //vreify user token
+        async function verifyUserToken(req, res, next) {
+            try {
+                const token = req.headers.authorization.split(" ")[1];
+                const data = jwt.decode(token, process.env.JWT_SECRET);
+                const { _id, name, userName, email, phone, role } = data;
+
+                if (role !== "user") {
+                    res.status(401).send({ message: "Unauthorized Access" });
+                    return;
+                }
+
+                const userData = await userCollection.findOne({
+                    _id: new ObjectId(_id),
+                });
+
+                if (!userData) {
+                    res.status(401).send({ message: "Unauthorized Access" });
+                    return;
+                }
+
+                if (
+                    name !== userData.name ||
+                    userName !== userData.userName ||
+                    email !== userData.email ||
+                    phone !== userData.phone
+                ) {
+                    res.status(401).send({ message: "Unauthorized Access" });
+                    return;
+                }
+
+                next();
+            } catch (error) {
+                res.status(500).send({ message: "Internal Server Error" });
+            }
+        }
+
         //login with JWT token
         app.get("/authenticate-with-jwt", async (req, res) => {
             const token = req.headers.authorization.split(" ")[1];
@@ -175,7 +214,13 @@ const runMongoConnection = async () => {
                         sellingCount: -1,
                     })
                     .limit(10)
-                    .project({ name: 1, price: 1, image: 1, slug: 1 });
+                    .project({
+                        name: 1,
+                        price: 1,
+                        image: 1,
+                        slug: 1,
+                        seller: 1,
+                    });
 
                 const products = await cursor.toArray();
                 res.status(200).send(products);
@@ -199,6 +244,7 @@ const runMongoConnection = async () => {
                         image: 1,
                         slug: 1,
                         collection: 1,
+                        seller: 1,
                     });
 
                 const products = await cursor.toArray();
@@ -266,6 +312,39 @@ const runMongoConnection = async () => {
                 res.status(500).send({
                     message: "Failed to create new product",
                 });
+            }
+        });
+
+        /****************** PRODUCTS ********************/
+        app.post("/order", verifyUserToken, async (req, res) => {
+            try {
+                const newOrder = req.body;
+                const { products } = newOrder;
+                const prodIds = products.map((p) => new ObjectId(p._id));
+                const filter = { _id: { $in: prodIds } };
+                const updateOperation = { $inc: { sellingCount: 1 } };
+
+                const result = await productCollection.updateMany(
+                    filter,
+                    updateOperation
+                );
+
+                if (!result.acknowledged) {
+                    res.status(500).send({ message: "Failed to Place Order" });
+                    return;
+                }
+
+                const orderResult = await orderCollection.insertOne(newOrder);
+                if (!orderResult.acknowledged) {
+                    res.status(500).send({ message: "Failed to Place Order" });
+                    return;
+                }
+
+                res.status(201).send({
+                    message: "Your order Placed Successfully",
+                });
+            } catch (error) {
+                res.status(500).send({ message: error.message });
             }
         });
 

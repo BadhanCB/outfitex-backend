@@ -138,6 +138,22 @@ const runMongoConnection = async () => {
             }
         });
 
+        //get products by collection
+        app.get("/products/collection/:collname", async (req, res) => {
+            try {
+                console.log(req.params.collname);
+                const cursor = productCollection.find({
+                    collection: req.params.collname,
+                });
+                // const total = await productCollection.estimatedDocumentCount();
+
+                const products = await cursor.toArray();
+                res.status(200).send(products);
+            } catch (error) {
+                res.status(500).send(error);
+            }
+        });
+
         //create new products
         app.post("/products", verifySellerToken, async (req, res) => {
             try {
@@ -150,8 +166,6 @@ const runMongoConnection = async () => {
                     description,
                     seller,
                 } = req.body;
-
-                console.log(req.body);
 
                 let img;
                 await sharp(data)

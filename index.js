@@ -235,7 +235,7 @@ const runMongoConnection = async () => {
                 const cursor = productCollection
                     .find({})
                     .sort({
-                        createdAt: 1,
+                        createdAt: -1,
                     })
                     .limit(10)
                     .project({

@@ -138,6 +138,18 @@ const runMongoConnection = async () => {
             }
         });
 
+        //get single product
+        app.get("/product/:slug", async (req, res) => {
+            try {
+                const product = await productCollection.findOne({
+                    slug: req.params.slug,
+                });
+                res.status(200).send(product);
+            } catch (error) {
+                res.status(500).send(error);
+            }
+        });
+
         //get products by collection
         app.get("/products/collection/:collname", async (req, res) => {
             try {
@@ -163,7 +175,7 @@ const runMongoConnection = async () => {
                         sellingCount: -1,
                     })
                     .limit(10)
-                    .project({ name: 1, price: 1, image: 1 });
+                    .project({ name: 1, price: 1, image: 1, slug: 1 });
 
                 const products = await cursor.toArray();
                 res.status(200).send(products);
@@ -181,7 +193,13 @@ const runMongoConnection = async () => {
                         createdAt: 1,
                     })
                     .limit(10)
-                    .project({ name: 1, price: 1, image: 1, collection: 1 });
+                    .project({
+                        name: 1,
+                        price: 1,
+                        image: 1,
+                        slug: 1,
+                        collection: 1,
+                    });
 
                 const products = await cursor.toArray();
                 res.status(200).send(products);

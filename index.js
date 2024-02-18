@@ -235,6 +235,25 @@ const runMongoConnection = async () => {
             }
         });
 
+        //get FEATURED products
+        app.get("/products/featured", async ({ res }) => {
+            try {
+                const cursor = productCollection
+                    .find({ isFeatured: true })
+                    .project({
+                        name: 1,
+                        category: 1,
+                        image: 1,
+                        slug: 1,
+                    });
+
+                const products = await cursor.toArray();
+                res.status(200).send(products);
+            } catch (error) {
+                res.status(500).send(error);
+            }
+        });
+
         //get top selling products
         app.get("/products/top-selling", async ({ res }) => {
             try {

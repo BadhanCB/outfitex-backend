@@ -164,18 +164,61 @@ const runMongoConnection = async () => {
         });
 
         /****************** PRODUCTS ********************/
-        //get products
-        app.get("/products", async ({ res }) => {
+        //get products (using post method sothat we can get collection of category)
+        app.post("/products", async (req, res) => {
             try {
-                const cursor = productCollection.find({});
-                const total = await productCollection.estimatedDocumentCount();
+                const { categories } = req.body;
+                const { sort } = req.query;
+                let filter = {};
+                let sortFilter = {};
+
+                if (categories && categories?.length) {
+                    filter = { category: { $in: categories } };
+                }
+
+                if (sort && sort.length) {
+                    switch (sort) {
+                        case "popular":
+                            sortFilter = { sellingCount: -1 };
+                            break;
+                        case "latest":
+                            sortFilter = { createdAt: -1 };
+                            break;
+                        case "lowToHigh":
+                            sortFilter = { price: 1 };
+                            break;
+                        case "highToLow":
+                            sortFilter = { price: -1 };
+                            break;
+                        default:
+                            break;
+                    }
+                }
+
+                const cursor = productCollection.find(filter).sort(sortFilter);
 
                 const products = await cursor.toArray();
+                const total = await productCollection.estimatedDocumentCount();
+
                 res.status(200).send({ products, total });
             } catch (error) {
+                console.log(error);
                 res.status(500).send(error);
             }
         });
+
+        // //get products
+        // app.get("/products", async ({ res }) => {
+        //     try {
+        //         const cursor = productCollection.find({});
+        //         const total = await productCollection.estimatedDocumentCount();
+
+        //         const products = await cursor.toArray();
+        //         res.status(200).send({ products, total });
+        //     } catch (error) {
+        //         res.status(500).send(error);
+        //     }
+        // });
 
         //get single product
         app.get("/product/:slug", async (req, res) => {
@@ -304,7 +347,7 @@ const runMongoConnection = async () => {
         });
 
         //create new products
-        app.post("/products", verifySellerToken, async (req, res) => {
+        app.post("/products/new", verifySellerToken, async (req, res) => {
             try {
                 const { data } = req?.files?.file;
                 const {
@@ -364,7 +407,8 @@ const runMongoConnection = async () => {
             }
         });
 
-        /****************** PRODUCTS ********************/
+        /****************** Orders ********************/
+        //post orders
         app.post("/order", verifyUserToken, async (req, res) => {
             try {
                 const newOrder = req.body;

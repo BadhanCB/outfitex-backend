@@ -192,10 +192,40 @@ const runMongoConnection = async () => {
         //get products by collection
         app.get("/products/collection/:collname", async (req, res) => {
             try {
-                console.log(req.params.collname);
-                const cursor = productCollection.find({
-                    collection: req.params.collname,
-                });
+                const cursor = productCollection
+                    .find({
+                        collection: req.params.collname,
+                    })
+                    .project({
+                        name: 1,
+                        price: 1,
+                        image: 1,
+                        slug: 1,
+                        seller: 1,
+                    });
+                // const total = await productCollection.estimatedDocumentCount();
+
+                const products = await cursor.toArray();
+                res.status(200).send(products);
+            } catch (error) {
+                res.status(500).send(error);
+            }
+        });
+
+        //get products by category
+        app.get("/products/category/:catname", async (req, res) => {
+            try {
+                const cursor = productCollection
+                    .find({
+                        category: req.params.catname,
+                    })
+                    .project({
+                        name: 1,
+                        price: 1,
+                        image: 1,
+                        slug: 1,
+                        seller: 1,
+                    });
                 // const total = await productCollection.estimatedDocumentCount();
 
                 const products = await cursor.toArray();

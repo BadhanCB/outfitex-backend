@@ -198,7 +198,18 @@ const runMongoConnection = async () => {
                     }
                 }
 
-                const cursor = productCollection.find(filter).sort(sortFilter);
+                const cursor = productCollection
+                    .find(filter)
+                    .sort(sortFilter)
+                    .project({
+                        name: 1,
+                        price: 1,
+                        image: 1,
+                        slug: 1,
+                        seller: 1,
+                        description: 1,
+                        category: 1,
+                    });
 
                 const products = await cursor.toArray();
                 const total = await productCollection.estimatedDocumentCount();

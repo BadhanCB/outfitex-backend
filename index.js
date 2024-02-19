@@ -38,6 +38,9 @@ const runMongoConnection = async () => {
         const orderCollection = client.db("outfitex").collection("orders");
         const sellerCollection = client.db("outfitex").collection("seller");
         const adminCollection = client.db("outfitex").collection("admin");
+        const collectionsCollection = client
+            .db("outfitex")
+            .collection("collections");
 
         /****************** VERIFY JWT(JWT Authorization) ********************/
         //seller token
@@ -404,6 +407,18 @@ const runMongoConnection = async () => {
                 res.status(500).send({
                     message: "Failed to create new product",
                 });
+            }
+        });
+
+        //get collection and category name
+        app.get("/collections", async ({ res }) => {
+            try {
+                const cursor = collectionsCollection.find({});
+
+                const products = await cursor.toArray();
+                res.status(200).send(products);
+            } catch (error) {
+                res.status(500).send(error);
             }
         });
 

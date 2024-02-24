@@ -43,7 +43,52 @@ const runMongoConnection = async () => {
             .collection("collections");
 
         /****************** VERIFY JWT(JWT Authorization) ********************/
-        //seller token
+        //vreify token(for all type of user)
+        async function verifyToken(req, res, next) {
+            try {
+                const token = req.headers.authorization.split(" ")[1];
+                const data = jwt.decode(token, process.env.JWT_SECRET);
+                const { _id, name, userName, email, phone, role } = data;
+                let info;
+
+                if ((role !== "user") | "seller") {
+                    res.status(401).send({ message: "Unauthorized Access" });
+                    return;
+                }
+
+                info = await userCollection.findOne({ _id: new ObjectId(_id) });
+                if (!info) {
+                    info = await sellerCollection.findOne({
+                        _id: new ObjectId(_id),
+                    });
+                }
+                if (!info) {
+                    info = await adminCollection.findOne({
+                        _id: new ObjectId(_id),
+                    });
+                }
+                if (!info) {
+                    res.status(401).send({ message: "Unauthorized Access" });
+                    return;
+                }
+
+                if (
+                    name !== info.name ||
+                    userName !== info.userName ||
+                    email !== info.email ||
+                    phone !== info.phone
+                ) {
+                    res.status(401).send({ message: "Unauthorized Access" });
+                    return;
+                }
+                req.userInfo = { role, _id };
+                next();
+            } catch (error) {
+                res.status(500).send({ message: "Internal Server Error" });
+            }
+        }
+
+        //verify seller token
         async function verifySellerToken(req, res, next) {
             const token = req.headers.authorization.split(" ")[1];
             const data = jwt.decode(token, process.env.JWT_SECRET);
@@ -584,6 +629,71 @@ const runMongoConnection = async () => {
                 }
             } catch (error) {
                 res.status(500).send({ message: "Failed to create new user" });
+            }
+        });
+
+        //user profile photo
+        app.post("/change-photo", verifyToken, async (req, res) => {
+            try {
+                if (!req.files.photo) {
+                    res.status(400).send({ message: "File not attuched" });
+                    return;
+                }
+
+                console.log(req.files.photo, req.userInfo);
+                const { data } = req.files.photo;
+                const { role, _id } = req.userInfo;
+
+                let img;
+                await sharp(data)
+                    .resize(320)
+                    .toFormat("webp")
+                    .toBuffer()
+                    .then((data) => (img = data))
+                    .catch((err) => res.status(500).send(err));
+
+                const encImg = img.toString("base64");
+
+                const photo = {
+                    data: Buffer.from(encImg, "base64"),
+                    type: "image/webp",
+                };
+
+                let response;
+                if (role === "user") {
+                    response = await userCollection.updateOne(
+                        { _id: new ObjectId(_id) },
+                        {
+                            $set: {
+                                photo: photo,
+                            },
+                        }
+                    );
+                } else if (role === "seller") {
+                    response = await sellerCollection.updateOne(
+                        { _id: new ObjectId(_id) },
+                        {
+                            $set: {
+                                photo: photo,
+                            },
+                        }
+                    );
+                }
+
+                if (response.modifiedCount > 0) {
+                    res.status(201).send({
+                        message: "Photo Updated Successfully",
+                    });
+                } else {
+                    res.status(500).send({
+                        message: "Failed to Update",
+                    });
+                }
+            } catch (error) {
+                console.error(error);
+                res.status(500).send({
+                    message: "Failed to create new product",
+                });
             }
         });
 
